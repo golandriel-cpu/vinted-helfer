@@ -1,6 +1,6 @@
 // Service Worker: App-Shell offline verfügbar machen, Freistell-KI & Schriften nach erstem Laden cachen.
 // Bei Änderungen an App-Dateien VERSION hochzählen, damit Nutzer die neue Version bekommen.
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = `shell-${VERSION}`, RUNTIME = "runtime-v1";
 const FILES = ["./", "index.html", "css/style.css", "js/app.js", "js/imaging.js", "js/ai.js", "js/storage.js",
   "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];

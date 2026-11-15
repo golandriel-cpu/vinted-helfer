@@ -43,18 +43,18 @@
       <input type="file" id="file" accept="image/*" multiple class="hidden">
       <input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
       <div class="thumbs" id="thumbs"></div>
+      <p class="muted" id="imgHint" style="margin:8px 0 0">Foto antippen = Vorher/Nachher · ⬇ = einzeln speichern</p>
       <div class="opts">
-        <label class="check"><input type="checkbox" id="o-edit" checked> Automatisch bearbeiten</label>
-        <label class="check">Stil
-          <select id="o-style"><option value="wand">Auf Bügel an weißer Wand</option><option value="weiss">Freigestellt auf Weiß</option></select></label>
+        <label for="o-style">Hintergrund</label>
+        <select id="o-style"><option value="wand">Weiße Wand</option><option value="weiss">Reines Weiß</option></select>
+        <label for="o-format">Format</label>
+        <select id="o-format"><option value="45">4:5 Hochformat</option><option value="11">1:1 Quadrat</option></select>
         <label class="check"><input type="checkbox" id="o-shadow" checked> Schatten</label>
-        <label class="check">Format
-          <select id="o-format"><option value="45">4:5 Hochformat</option><option value="11">1:1 Quadrat</option></select></label>
+        <label class="check"><input type="checkbox" id="o-edit" checked> Automatisch bearbeiten</label>
       </div>
-      <p class="muted" id="imgHint" style="margin:8px 0 0">Antippen = Vorher/Nachher · unten links: Bearbeitet → nur Licht → Original · ⬇ = Foto speichern</p>
-      <div class="actions" id="imgActions" style="margin-top:10px">
-        <button class="btn small" id="saveAll">💾 Alle Fotos speichern</button>
-        <button class="btn ghost small" id="dlAll">↗ Teilen (z. B. an Vinted)</button>
+      <div class="actions two" id="imgActions">
+        <button class="btn" id="saveAll">Alle speichern</button>
+        <button class="btn ghost" id="dlAll">Teilen</button>
       </div>
       <div class="status" id="imgStatus"></div>
 
@@ -158,7 +158,13 @@
     <div class="card">
       <h2>KI (Google Gemini)</h2>
       <label for="s-key">API-Schlüssel</label>
-      <input type="text" id="s-key" autocomplete="off" spellcheck="false" placeholder="AIza…">
+      <div class="keyview hidden" id="keyView">
+        <span class="ok">✓ Gespeichert</span><code id="keyMask"></code>
+        <button class="btn ghost small" id="keyEdit">Ändern</button>
+      </div>
+      <input type="text" id="s-key" autocomplete="off" spellcheck="false" placeholder="AIza… hier einfügen">
+      <div class="actions"><button class="btn small" id="keyTest">Schlüssel prüfen</button></div>
+      <div class="keystatus" id="keyStatus"></div>
       <p class="muted" style="margin:6px 0 0">Kostenlos erstellen unter <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (Google-Konto, keine Kreditkarte). Der Schlüssel bleibt auf diesem Gerät.</p>
       <label for="s-model">Modell</label>
       <select id="s-model"></select>

@@ -1,6 +1,6 @@
 // Vinted-Inserat-Helfer – Hauptlogik (UI, KI-Aufruf, Archiv)
 import { loadImg, canvasOf, canvasBlob, toBlob, editImage, setStatusHandler } from "./imaging.js";
-import { askGemini, MODELS, DEFAULT_MODEL } from "./ai.js";
+import { askGemini, checkKey, MODELS, DEFAULT_MODEL } from "./ai.js";
 import { archiveStore } from "./storage.js";
 
 const $ = id => document.getElementById(id);
@@ -18,7 +18,32 @@ $("s-key").value = settings.apiKey; $("s-model").value = settings.model;
 $("s-footer").value = settings.footer; $("s-emoji").checked = settings.emoji;
 $("s-domain").value = settings.domain; $("s-hashtags").value = settings.hashtags;
 // Schlüssel sofort beim Tippen sichern (auf dem Handy feuert "change" oft erst beim Verlassen des Feldes)
-$("s-key").addEventListener("input", () => { settings.apiKey = $("s-key").value.trim(); ls.set("vh-settings", settings); updateKeyNote(); });
+$("s-key").addEventListener("input", () => { settings.apiKey = $("s-key").value.trim(); ls.set("vh-settings", settings); updateKeyNote(); $("keyStatus").textContent = ""; });
+$("s-key").addEventListener("blur", () => { if (settings.apiKey) renderKey(false); });
+$("keyEdit").onclick = () => { renderKey(true); $("s-key").focus(); $("s-key").select(); };
+// Gespeicherten Schlüssel nur maskiert anzeigen, Eingabefeld erst bei „Ändern“
+function renderKey(editing){
+  const has = !!settings.apiKey, k = settings.apiKey;
+  $("keyView").classList.toggle("hidden", !has || editing);
+  $("s-key").classList.toggle("hidden", has && !editing);
+  $("keyMask").textContent = has ? `${k.slice(0, 4)}••••${k.slice(-4)}` : "";
+}
+$("keyTest").onclick = async () => {
+  const st = $("keyStatus"), btn = $("keyTest");
+  if (!settings.apiKey){ st.className = "keystatus bad"; st.textContent = "Bitte zuerst einen Schlüssel einfügen."; return; }
+  setBusy(btn, true, "Prüfe…"); st.className = "keystatus"; st.textContent = "";
+  try{
+    await checkKey(settings.apiKey, settings.model);
+    st.className = "keystatus good"; st.textContent = "✓ Schlüssel funktioniert – die KI ist bereit.";
+  }catch(e){
+    st.className = "keystatus bad";
+    st.textContent = e.code === "bad_key" ? "✗ Schlüssel ungültig – bitte neu aus AI Studio kopieren."
+      : e.code === "model" ? "Schlüssel ist gültig, aber das gewählte Modell ist nicht verfügbar – bitte unten ein anderes wählen."
+      : e.code === "rate_limited" ? "Schlüssel ist gültig, aber das Freikontingent ist gerade aufgebraucht – später erneut versuchen."
+      : e.code === "network" ? "Keine Internetverbindung." : `Prüfung fehlgeschlagen: ${e.message || "unbekannter Fehler"}`;
+  }finally{ setBusy(btn, false, "Schlüssel prüfen"); }
+};
+renderKey(false);
 // Browser bitten, die Daten (Schlüssel, Archiv) nie automatisch zu löschen
 if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {});
 ["s-footer","s-emoji","s-domain","s-hashtags","s-key","s-model"].forEach(id => $(id).addEventListener("change", () => {
@@ -126,7 +151,7 @@ function processOne(im){
     try{
       if (im.mode === "original"){ setEdited(im, null); }
       else {
-        const c = await editImage(im.img, im.mode, im.box, { ...iopt, hang: im.hang }, im.memo || (im.memo = {}));
+        const c = await editImage(im.img, im.mode, im.box, iopt, im.memo || (im.memo = {}));
         if (ver !== im.ver) return;
         setEdited(im, await canvasBlob(c, .9), c);
       }
@@ -170,14 +195,14 @@ $("saveAll").onclick = async () => {
   if (!state.images.length) return;
   const btn = $("saveAll"); setBusy(btn, true, "Bereite Fotos vor…");
   try{ await queue; download(state.images.map(fileOf)); toast(`${state.images.length} Foto(s) gespeichert (Ordner „Download“)`); }
-  finally{ setBusy(btn, false, "💾 Alle Fotos speichern"); }
+  finally{ setBusy(btn, false, "Alle speichern"); }
 };
 $("dlAll").onclick = async () => {
   if (!state.images.length) return;
   const btn = $("dlAll"); setBusy(btn, true, "Bereite Fotos vor…");
   try{ await queue; await shareOrDownload(state.images.map(fileOf)); }
   catch(e){ toast("Teilen nicht möglich"); }
-  finally{ setBusy(btn, false, "↗ Teilen (z. B. an Vinted)"); }
+  finally{ setBusy(btn, false, "Teilen"); }
 };
 
 // ---------- AI ----------
@@ -196,7 +221,7 @@ const SCHEMA = `{
 "preis": { "schnell": 0, "empfohlen": 0, "max": 0, "neupreis_geschaetzt": 0, "begruendung": "1–2 Sätze" },
 "unsicher": ["Dinge, die der Nutzer prüfen/ergänzen sollte, z. B. 'Größe auf dem Etikett nicht lesbar'"],
 "suchbegriff": "2–4 Wörter für die Vinted-Suche nach Vergleichsartikeln",
-"bilder": [{ "typ": "gesamt | detail | etikett", "box_2d": [ymin, xmin, ymax, xmax], "haengen": "buegel | klammer | vorhanden | keiner" }]
+"bilder": [{ "typ": "gesamt | detail | etikett", "box_2d": [ymin, xmin, ymax, xmax] }]
 }`;
 
 function buildPrompt(notes){
@@ -214,7 +239,7 @@ Regeln:
 - Titel: suchoptimiert, ohne Füllwörter, ohne Emojis, ohne Hashtags.
 - Beschreibung: 1 einladender Einstiegssatz, dann kompakte Details (Marke, Größe/Passform, Material, Farbe, Stil), dann ehrlicher Zustand inkl. Mängel, ggf. Styling-Idee. Kurze Absätze, gut lesbar am Handy, 400–900 Zeichen. Falls ein Standardtext vorgegeben ist, hänge ihn wörtlich als letzten Absatz an.
 - Hashtags: deutsch, kleingeschrieben, ohne Leerzeichen; Mix aus Marke, Artikeltyp, Stil/Trend (z. B. y2k, vintage, streetwear), Farbe, Anlass. Keine irreführenden Marken-Tags.
-- "bilder": genau ein Eintrag pro Foto in der Reihenfolge der Fotos. "typ": "gesamt" = Artikel ganz zu sehen, "detail" = Nahaufnahme/Mangel, "etikett" = Etikett/Label. "box_2d" = enger Rahmen um den Artikel (inkl. Kleiderbügel, falls er daran hängt; ohne Hände, Möbel) als [ymin, xmin, ymax, xmax], normiert auf 0–1000. "haengen" = wie der Artikel für ein Foto vor weißer Wand aufgehängt wird: "buegel" (Oberteile, Kleider, Jacken), "klammer" (Hosen, Röcke, Shorts), "vorhanden" (hängt im Foto schon auf einem Bügel), "keiner" (Schuhe, Taschen, Accessoires).
+- "bilder": genau ein Eintrag pro Foto in der Reihenfolge der Fotos. "typ": "gesamt" = Artikel ganz zu sehen, "detail" = Nahaufnahme/Mangel, "etikett" = Etikett/Label. "box_2d" = enger Rahmen um den Artikel (inkl. Kleiderbügel, falls er daran hängt; ohne Hände, Möbel) als [ymin, xmin, ymax, xmax], normiert auf 0–1000.
 - Preis in ganzen Euro für den deutschen Vinted-Markt, realistisch nach Marke, Zustand und typischer Nachfrage. "schnell" = verkauft sich zügig, "empfohlen" = guter Kompromiss, "max" = Startpreis mit Verhandlungsspielraum. Beim Ziel "schnell" eher niedriger, bei "maximal" eher höher ansetzen.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau diesem Format, ohne Markdown:
@@ -277,10 +302,8 @@ function applyImageHints(list){
     const okBox = b && b.every(v => isFinite(v) && v >= 0 && v <= 1000) && b[2] > b[0] && b[3] > b[1];
     const auto = (h.typ === "detail" || h.typ === "etikett") ? "licht" : "weiss";
     const changed = auto !== im.mode || (auto === "weiss" && okBox && JSON.stringify(b) !== JSON.stringify(im.box));
-    const hang = ["buegel", "klammer", "vorhanden", "keiner"].includes(h.haengen) ? h.haengen : "buegel";
-    const changed2 = changed || hang !== (im.hang || "buegel");
-    im.autoMode = auto; im.mode = auto; im.hang = hang; if (okBox) im.box = b;
-    if (changed2) processOne(im);
+    im.autoMode = auto; im.mode = auto; if (okBox) im.box = b;
+    if (changed) processOne(im);
   });
 }
 

@@ -20,6 +20,20 @@ function blobToBase64(blob){
   });
 }
 
+/** Prüft Schlüssel + Modell, ohne Kontingent zu verbrauchen (fragt nur die Modellinfo ab). */
+export async function checkKey(apiKey, model){
+  let res;
+  try{ res = await fetch(`${ENDPOINT}/${encodeURIComponent(model || DEFAULT_MODEL)}`, { headers: { "x-goog-api-key": apiKey } }); }
+  catch(e){ throw { code: "network", message: "Keine Verbindung" }; }
+  if (res.ok) return true;
+  const data = await res.json().catch(() => ({}));
+  const msg = (data.error && data.error.message) || `HTTP ${res.status}`;
+  if (res.status === 429) throw { code: "rate_limited", message: msg };
+  if (res.status === 404) throw { code: "model", message: msg };
+  if (res.status === 400 || res.status === 401 || res.status === 403) throw { code: "bad_key", message: msg };
+  throw { code: "http", message: msg };
+}
+
 /**
  * Schickt Prompt + Bilder an Gemini und gibt den Antworttext (JSON-String) zurück.
  * Wirft {code, message} mit code ∈ bad_key | model | rate_limited | network | empty | http.

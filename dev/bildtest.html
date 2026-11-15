@@ -29,7 +29,7 @@ for (const k of kinds){
   const src = scene(k), row = document.createElement("div"); row.className = "row";
   row.append(src); document.getElementById("out").append(row);
   const t0 = performance.now();
-  try{ const res = await editImage(src, "weiss", null, { shadow: true, format: q.get("f") || "45", style: q.get("s") || "wand", hang: k === "pants" ? "klammer" : (q.get("h") || "buegel") }); row.append(res); }
+  try{ const res = await editImage(src, "weiss", null, { shadow: true, format: q.get("f") || "45", style: q.get("s") || "wand" }); row.append(res); }
   catch(e){ row.append(String(e)); }
   window.timings.push([k, Math.round(performance.now() - t0)]);
 }
