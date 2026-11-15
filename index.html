@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f7c74">
+<meta name="description" content="Vinted-Inserate aus Fotos: Kleidungserkennung, Beschreibung, Hashtags, Preisvorschlag und automatische Bildbearbeitung.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inserat-Helfer">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Inserat-Helfer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Inserat<span>·</span>Helfer</h1>
+    <nav>
+      <button data-view="neu" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Neu</button>
+      <button data-view="archiv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>Archiv</button>
+      <button data-view="setup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</button>
+    </nav>
+  </header>
+
+  <!-- NEU -->
+  <section id="v-neu">
+    <div class="card">
+      <h2>1 · Fotos</h2>
+      <div class="drop" id="drop">
+        <strong>Fotos auswählen oder hierher ziehen</strong>
+        Vorderseite, Rückseite, Etikett (Marke, Größe, Material) und eventuelle Mängel
+      </div>
+      <div class="pick">
+        <button class="btn" id="camBtn">📷 Foto aufnehmen</button>
+        <button class="btn ghost" id="galBtn">🖼️ Aus Galerie</button>
+      </div>
+      <input type="file" id="file" accept="image/*" multiple class="hidden">
+      <input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
+      <div class="thumbs" id="thumbs"></div>
+      <div class="opts">
+        <label class="check"><input type="checkbox" id="o-edit" checked> Automatisch bearbeiten</label>
+        <label class="check"><input type="checkbox" id="o-shadow" checked> Leichter Schatten</label>
+        <label class="check">Format
+          <select id="o-format"><option value="45">4:5 Hochformat</option><option value="11">1:1 Quadrat</option></select></label>
+      </div>
+      <p class="muted" id="imgHint" style="margin:8px 0 0">Antippen = Vorher/Nachher · Schalter unten links: Weiß → nur Licht → Original</p>
+      <div class="actions" id="imgActions" style="margin-top:10px">
+        <button class="btn ghost small" id="dlAll">Alle Fotos teilen / speichern</button>
+      </div>
+      <div class="status" id="imgStatus"></div>
+
+      <label for="notes">Was die Fotos nicht zeigen <span class="muted">(optional)</span></label>
+      <textarea id="notes" placeholder="z. B. Größe M, fällt klein aus, 2× getragen, kleiner Fleck am Ärmel, Neupreis 89 €, Länge 68 cm"></textarea>
+
+      <div class="row">
+        <div>
+          <label for="tone">Tonalität</label>
+          <select id="tone">
+            <option value="locker">Locker & freundlich</option>
+            <option value="sachlich">Sachlich & knapp</option>
+            <option value="verkaufsstark">Verkaufsstark</option>
+          </select>
+        </div>
+        <div>
+          <label for="goal">Ziel</label>
+          <select id="goal">
+            <option value="ausgewogen">Ausgewogen</option>
+            <option value="schnell">Schnell verkaufen</option>
+            <option value="maximal">Bestmöglicher Preis</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn full" id="go" disabled>Inserat erstellen</button>
+      <div class="status" id="status"></div>
+      <div class="note hidden" id="noai">Für die Erkennung brauchst du einmalig einen kostenlosen Gemini-API-Schlüssel. <button class="btn ghost small" id="noaiBtn" style="margin-top:6px">Schlüssel eintragen</button></div>
+    </div>
+
+    <div id="result" class="hidden">
+      <div class="card">
+        <h2>2 · Inserat</h2>
+
+        <div class="field">
+          <div class="field-head"><span>Titel <small id="tlen"></small></span><button class="btn ghost small" data-copy="titel">Kopieren</button></div>
+          <input type="text" id="f-titel">
+        </div>
+
+        <div class="field">
+          <div class="field-head"><span>Beschreibung</span><button class="btn ghost small" data-copy="beschreibung">Kopieren</button></div>
+          <textarea id="f-beschreibung" rows="9"></textarea>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><span>Hashtags</span><button class="btn ghost small" data-copy="hashtags">Kopieren</button></div>
+          <div class="tags" id="f-tags"></div>
+        </div>
+
+        <button class="btn" id="copyall" style="width:100%">Beschreibung + Hashtags kopieren</button>
+        <a class="btn ghost" id="openVinted" href="https://www.vinted.de/items/new" target="_blank" rel="noopener" style="width:100%;margin-top:8px;text-decoration:none">Vinted öffnen &amp; Artikel einstellen ↗</a>
+      </div>
+
+      <div class="card">
+        <h2>3 · Angaben für die Felder</h2>
+        <div class="grid-facts" id="facts"></div>
+        <div class="note hidden" id="unsure"></div>
+      </div>
+
+      <div class="card">
+        <h2>4 · Preis</h2>
+        <div class="prices">
+          <div class="price"><b>Schnell weg</b><div id="p-schnell">–</div></div>
+          <div class="price main"><b>Empfohlen</b><div id="p-empf">–</div></div>
+          <div class="price"><b>Startpreis</b><div id="p-max">–</div></div>
+        </div>
+        <p class="muted" id="p-why" style="margin:10px 0 4px"></p>
+        <p class="muted" style="margin:0">Schätzung ohne Live-Marktdaten – kurz gegenprüfen: <a id="p-link" href="#" target="_blank" rel="noopener">ähnliche Artikel auf Vinted ansehen</a></p>
+      </div>
+
+      <div class="card">
+        <h2>Anpassen</h2>
+        <div class="row" style="grid-template-columns:1fr auto;align-items:end">
+          <div><input type="text" id="refine" placeholder="z. B. kürzer, ohne Emojis, Preis eher 25 €, betone Vintage"></div>
+          <button class="btn ghost" id="refineBtn">Überarbeiten</button>
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" id="save">Im Archiv speichern</button>
+          <button class="btn ghost" id="reset">Neues Inserat</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHIV -->
+  <section id="v-archiv" class="hidden">
+    <div class="card">
+      <h2>Deine Inserate</h2>
+      <div class="stats" id="stats"></div>
+      <div id="archList"><p class="muted">Lade…</p></div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section id="v-setup" class="hidden">
+    <div class="card" id="installCard">
+      <h2>Als App installieren</h2>
+      <button class="btn hidden" id="installBtn">📲 Jetzt auf dem Handy installieren</button>
+      <p class="muted" id="installHint" style="margin:6px 0 0">Android (Chrome): Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“. Danach startet der Helfer wie eine normale App im Vollbild.</p>
+    </div>
+    <div class="card">
+      <h2>KI (Google Gemini)</h2>
+      <label for="s-key">API-Schlüssel</label>
+      <input type="text" id="s-key" autocomplete="off" spellcheck="false" placeholder="AIza…">
+      <p class="muted" style="margin:6px 0 0">Kostenlos erstellen unter <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (Google-Konto, keine Kreditkarte). Der Schlüssel bleibt auf diesem Gerät.</p>
+      <label for="s-model">Modell</label>
+      <select id="s-model"></select>
+    </div>
+    <div class="card">
+      <h2>Standardtext am Ende der Beschreibung</h2>
+      <textarea id="s-footer" rows="4" placeholder="z. B. Tierfreier Nichtraucherhaushalt. Versand innerhalb von 1–2 Tagen. Schau gern in meine anderen Artikel – Bundle-Rabatt möglich!"></textarea>
+      <label class="check"><input type="checkbox" id="s-emoji" checked> Emojis in der Beschreibung erlauben</label>
+      <label for="s-domain">Vinted-Land (für Vergleichslink)</label>
+      <select id="s-domain">
+        <option value="www.vinted.de">Deutschland (vinted.de)</option>
+        <option value="www.vinted.at">Österreich (vinted.at)</option>
+        <option value="www.vinted.fr">Frankreich (vinted.fr)</option>
+        <option value="www.vinted.nl">Niederlande (vinted.nl)</option>
+      </select>
+      <label for="s-hashtags">Anzahl Hashtags</label>
+      <input type="number" id="s-hashtags" min="0" max="20" value="8">
+      <p class="muted" style="margin-top:12px">Einstellungen werden in diesem Browser gespeichert.</p>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
