@@ -10,6 +10,8 @@ function scene(kind){
   if(kind==="wood"){for(let x=0;x<W;x+=140){g.fillStyle=`hsl(30,${35+Math.random()*10}%,${45+Math.random()*12}%)`;g.fillRect(x,0,140,H);g.fillStyle="rgba(0,0,0,.25)";g.fillRect(x,0,3,H);}}
   else if(kind==="sheet"){const gr=g.createLinearGradient(0,0,W,H);gr.addColorStop(0,"#e9e3d8");gr.addColorStop(1,"#cfc6b6");g.fillStyle=gr;g.fillRect(0,0,W,H);for(let i=0;i<14;i++){g.strokeStyle="rgba(120,100,80,.12)";g.lineWidth=30;g.beginPath();g.moveTo(Math.random()*W,0);g.bezierCurveTo(Math.random()*W,H/3,Math.random()*W,H*2/3,Math.random()*W,H);g.stroke();}}
   else {g.fillStyle="#8a8f96";g.fillRect(0,0,W,H*.55);g.fillStyle="#5b4a3a";g.fillRect(0,H*.55,W,H);}
+  if(kind==="pants"){g.fillStyle="#9a8c7c";g.fillRect(0,0,W,H);const pants=(dx,dy)=>{g.beginPath();g.moveTo(380+dx,250+dy);g.lineTo(820+dx,250+dy);g.lineTo(880+dx,1400+dy);g.lineTo(640+dx,1400+dy);g.lineTo(600+dx,600+dy);g.lineTo(560+dx,1400+dy);g.lineTo(320+dx,1400+dy);g.closePath();};
+    g.save();g.filter="blur(18px)";g.fillStyle="rgba(0,0,0,.35)";pants(18,22);g.fill();g.restore();g.fillStyle="#3c5a86";pants(0,0);g.fill();g.fillStyle="#2c4466";g.fillRect(380,250,440,50);return c;}
   const shirt=(dx,dy)=>{g.beginPath();g.moveTo(420+dx,300+dy);g.lineTo(780+dx,300+dy);g.lineTo(1050+dx,480+dy);g.lineTo(960+dx,640+dy);g.lineTo(850+dx,570+dy);g.lineTo(860+dx,1300+dy);g.lineTo(340+dx,1300+dy);g.lineTo(350+dx,570+dy);g.lineTo(240+dx,640+dy);g.lineTo(150+dx,480+dy);g.closePath();};
   g.save();g.filter="blur(18px)";g.fillStyle="rgba(0,0,0,.35)";shirt(18,22);g.fill();g.restore();
   g.fillStyle=kind==="sheet"?"#f4f2ee":kind==="wood"?"#1d2433":"#b0263a";shirt(0,0);g.fill();
@@ -20,13 +22,14 @@ function scene(kind){
   const id=g.getImageData(0,0,W,H),d=id.data;for(let i=0;i<d.length;i+=4){const n=(Math.random()-.5)*14;d[i]+=n;d[i+1]+=n;d[i+2]+=n;}g.putImageData(id,0,0);
   return c;
 }
-const kinds = new URLSearchParams(location.search).get("k")?.split(",") || ["wood","sheet","wall"];
+const q = new URLSearchParams(location.search);
+const kinds = q.get("k")?.split(",") || ["wood","sheet","wall","pants"];
 window.timings = [];
 for (const k of kinds){
   const src = scene(k), row = document.createElement("div"); row.className = "row";
   row.append(src); document.getElementById("out").append(row);
   const t0 = performance.now();
-  try{ const res = await editImage(src, "weiss", null, { shadow: true, format: "45" }); row.append(res); }
+  try{ const res = await editImage(src, "weiss", null, { shadow: true, format: q.get("f") || "45", style: q.get("s") || "wand", hang: k === "pants" ? "klammer" : (q.get("h") || "buegel") }); row.append(res); }
   catch(e){ row.append(String(e)); }
   window.timings.push([k, Math.round(performance.now() - t0)]);
 }

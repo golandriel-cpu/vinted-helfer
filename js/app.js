@@ -17,6 +17,10 @@ $("s-model").innerHTML = MODELS.map(m => `<option value="${m.id}">${m.label}</op
 $("s-key").value = settings.apiKey; $("s-model").value = settings.model;
 $("s-footer").value = settings.footer; $("s-emoji").checked = settings.emoji;
 $("s-domain").value = settings.domain; $("s-hashtags").value = settings.hashtags;
+// Schlüssel sofort beim Tippen sichern (auf dem Handy feuert "change" oft erst beim Verlassen des Feldes)
+$("s-key").addEventListener("input", () => { settings.apiKey = $("s-key").value.trim(); ls.set("vh-settings", settings); updateKeyNote(); });
+// Browser bitten, die Daten (Schlüssel, Archiv) nie automatisch zu löschen
+if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {});
 ["s-footer","s-emoji","s-domain","s-hashtags","s-key","s-model"].forEach(id => $(id).addEventListener("change", () => {
   settings.apiKey = $("s-key").value.trim();
   settings.model = $("s-model").value || DEFAULT_MODEL;
@@ -63,10 +67,10 @@ drop.addEventListener("drop", ev => addFiles(ev.dataTransfer.files));
 
 
 // image options
-const iopt = Object.assign({ edit: true, shadow: true, format: "45" }, ls.get("vh-imgopts", {}));
-$("o-edit").checked = iopt.edit; $("o-shadow").checked = iopt.shadow; $("o-format").value = iopt.format;
-["o-edit","o-shadow","o-format"].forEach(id => $(id).addEventListener("change", () => {
-  iopt.edit = $("o-edit").checked; iopt.shadow = $("o-shadow").checked; iopt.format = $("o-format").value;
+const iopt = Object.assign({ edit: true, shadow: true, format: "45", style: "wand" }, ls.get("vh-imgopts", {}));
+$("o-edit").checked = iopt.edit; $("o-shadow").checked = iopt.shadow; $("o-format").value = iopt.format; $("o-style").value = iopt.style;
+["o-edit","o-shadow","o-format","o-style"].forEach(id => $(id).addEventListener("change", () => {
+  iopt.edit = $("o-edit").checked; iopt.shadow = $("o-shadow").checked; iopt.format = $("o-format").value; iopt.style = $("o-style").value;
   ls.set("vh-imgopts", iopt);
   state.images.forEach(im => { if (!iopt.edit) im.mode = "original"; else if (im.mode === "original" && !im.userMode) im.mode = im.autoMode || "weiss"; });
   processAll();
@@ -87,7 +91,7 @@ async function addFiles(list){
   renderThumbs(); processAll();
 }
 
-const MODE_LABEL = { weiss: "Weiß", licht: "Nur Licht", original: "Original" };
+const MODE_LABEL = { weiss: "Bearbeitet", licht: "Nur Licht", original: "Original" };
 const NEXT_MODE = { weiss: "licht", licht: "original", original: "weiss" };
 function renderThumbs(){
   const box = $("thumbs"); box.innerHTML = "";
@@ -98,7 +102,7 @@ function renderThumbs(){
       ${im.showOrig && im.mode !== "original" ? `<span class="orig-badge">Vorher</span>` : ""}
       <button class="x" title="Entfernen">×</button>
       <button class="mode" title="Bearbeitung wechseln">${MODE_LABEL[im.mode]}</button>
-      <button class="dl" title="Foto teilen / speichern">⬇</button>
+      <button class="dl" title="Foto speichern">⬇</button>
       ${im.busy ? `<div class="busy"><span class="spinner"></span></div>` : ""}`;
     d.querySelector(".x").onclick = ev => { ev.stopPropagation(); URL.revokeObjectURL(im.url); if (im.editedUrl) URL.revokeObjectURL(im.editedUrl); state.images.splice(i,1); renderThumbs(); };
     d.querySelector(".mode").onclick = ev => { ev.stopPropagation(); im.mode = NEXT_MODE[im.mode]; im.userMode = true; im.showOrig = false; processOne(im); };
@@ -122,7 +126,7 @@ function processOne(im){
     try{
       if (im.mode === "original"){ setEdited(im, null); }
       else {
-        const c = await editImage(im.img, im.mode, im.box, iopt, im.memo || (im.memo = {}));
+        const c = await editImage(im.img, im.mode, im.box, { ...iopt, hang: im.hang }, im.memo || (im.memo = {}));
         if (ver !== im.ver) return;
         setEdited(im, await canvasBlob(c, .9), c);
       }
@@ -151,13 +155,29 @@ async function shareOrDownload(files){
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }, k * 350));
 }
-async function saveOne(im, i){ await shareOrDownload([fileOf(im, i)]); }
+// Speichern = Download (landet auf Android im Ordner „Download“ und in der Galerie, von dort in Vinted hochladen)
+function download(files){
+  files.forEach((f, k) => setTimeout(() => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, k * 400));
+}
+async function saveOne(im, i){
+  if (im.busy) await queue;
+  download([fileOf(im, i)]); toast("Foto gespeichert (Ordner „Download“)");
+}
+$("saveAll").onclick = async () => {
+  if (!state.images.length) return;
+  const btn = $("saveAll"); setBusy(btn, true, "Bereite Fotos vor…");
+  try{ await queue; download(state.images.map(fileOf)); toast(`${state.images.length} Foto(s) gespeichert (Ordner „Download“)`); }
+  finally{ setBusy(btn, false, "💾 Alle Fotos speichern"); }
+};
 $("dlAll").onclick = async () => {
   if (!state.images.length) return;
   const btn = $("dlAll"); setBusy(btn, true, "Bereite Fotos vor…");
   try{ await queue; await shareOrDownload(state.images.map(fileOf)); }
   catch(e){ toast("Teilen nicht möglich"); }
-  finally{ setBusy(btn, false, "Alle Fotos teilen / speichern"); }
+  finally{ setBusy(btn, false, "↗ Teilen (z. B. an Vinted)"); }
 };
 
 // ---------- AI ----------
@@ -176,7 +196,7 @@ const SCHEMA = `{
 "preis": { "schnell": 0, "empfohlen": 0, "max": 0, "neupreis_geschaetzt": 0, "begruendung": "1–2 Sätze" },
 "unsicher": ["Dinge, die der Nutzer prüfen/ergänzen sollte, z. B. 'Größe auf dem Etikett nicht lesbar'"],
 "suchbegriff": "2–4 Wörter für die Vinted-Suche nach Vergleichsartikeln",
-"bilder": [{ "typ": "gesamt | detail | etikett", "box_2d": [ymin, xmin, ymax, xmax] }]
+"bilder": [{ "typ": "gesamt | detail | etikett", "box_2d": [ymin, xmin, ymax, xmax], "haengen": "buegel | klammer | vorhanden | keiner" }]
 }`;
 
 function buildPrompt(notes){
@@ -194,7 +214,7 @@ Regeln:
 - Titel: suchoptimiert, ohne Füllwörter, ohne Emojis, ohne Hashtags.
 - Beschreibung: 1 einladender Einstiegssatz, dann kompakte Details (Marke, Größe/Passform, Material, Farbe, Stil), dann ehrlicher Zustand inkl. Mängel, ggf. Styling-Idee. Kurze Absätze, gut lesbar am Handy, 400–900 Zeichen. Falls ein Standardtext vorgegeben ist, hänge ihn wörtlich als letzten Absatz an.
 - Hashtags: deutsch, kleingeschrieben, ohne Leerzeichen; Mix aus Marke, Artikeltyp, Stil/Trend (z. B. y2k, vintage, streetwear), Farbe, Anlass. Keine irreführenden Marken-Tags.
-- "bilder": genau ein Eintrag pro Foto in der Reihenfolge der Fotos. "typ": "gesamt" = Artikel ganz zu sehen, "detail" = Nahaufnahme/Mangel, "etikett" = Etikett/Label. "box_2d" = enger Rahmen um den Artikel (ohne Kleiderbügel, Hände, Möbel) als [ymin, xmin, ymax, xmax], normiert auf 0–1000.
+- "bilder": genau ein Eintrag pro Foto in der Reihenfolge der Fotos. "typ": "gesamt" = Artikel ganz zu sehen, "detail" = Nahaufnahme/Mangel, "etikett" = Etikett/Label. "box_2d" = enger Rahmen um den Artikel (inkl. Kleiderbügel, falls er daran hängt; ohne Hände, Möbel) als [ymin, xmin, ymax, xmax], normiert auf 0–1000. "haengen" = wie der Artikel für ein Foto vor weißer Wand aufgehängt wird: "buegel" (Oberteile, Kleider, Jacken), "klammer" (Hosen, Röcke, Shorts), "vorhanden" (hängt im Foto schon auf einem Bügel), "keiner" (Schuhe, Taschen, Accessoires).
 - Preis in ganzen Euro für den deutschen Vinted-Markt, realistisch nach Marke, Zustand und typischer Nachfrage. "schnell" = verkauft sich zügig, "empfohlen" = guter Kompromiss, "max" = Startpreis mit Verhandlungsspielraum. Beim Ziel "schnell" eher niedriger, bei "maximal" eher höher ansetzen.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau diesem Format, ohne Markdown:
@@ -257,8 +277,10 @@ function applyImageHints(list){
     const okBox = b && b.every(v => isFinite(v) && v >= 0 && v <= 1000) && b[2] > b[0] && b[3] > b[1];
     const auto = (h.typ === "detail" || h.typ === "etikett") ? "licht" : "weiss";
     const changed = auto !== im.mode || (auto === "weiss" && okBox && JSON.stringify(b) !== JSON.stringify(im.box));
-    im.autoMode = auto; im.mode = auto; if (okBox) im.box = b;
-    if (changed) processOne(im);
+    const hang = ["buegel", "klammer", "vorhanden", "keiner"].includes(h.haengen) ? h.haengen : "buegel";
+    const changed2 = changed || hang !== (im.hang || "buegel");
+    im.autoMode = auto; im.mode = auto; im.hang = hang; if (okBox) im.box = b;
+    if (changed2) processOne(im);
   });
 }
 

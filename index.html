@@ -45,13 +45,16 @@
       <div class="thumbs" id="thumbs"></div>
       <div class="opts">
         <label class="check"><input type="checkbox" id="o-edit" checked> Automatisch bearbeiten</label>
-        <label class="check"><input type="checkbox" id="o-shadow" checked> Leichter Schatten</label>
+        <label class="check">Stil
+          <select id="o-style"><option value="wand">Auf Bügel an weißer Wand</option><option value="weiss">Freigestellt auf Weiß</option></select></label>
+        <label class="check"><input type="checkbox" id="o-shadow" checked> Schatten</label>
         <label class="check">Format
           <select id="o-format"><option value="45">4:5 Hochformat</option><option value="11">1:1 Quadrat</option></select></label>
       </div>
-      <p class="muted" id="imgHint" style="margin:8px 0 0">Antippen = Vorher/Nachher · Schalter unten links: Weiß → nur Licht → Original</p>
+      <p class="muted" id="imgHint" style="margin:8px 0 0">Antippen = Vorher/Nachher · unten links: Bearbeitet → nur Licht → Original · ⬇ = Foto speichern</p>
       <div class="actions" id="imgActions" style="margin-top:10px">
-        <button class="btn ghost small" id="dlAll">Alle Fotos teilen / speichern</button>
+        <button class="btn small" id="saveAll">💾 Alle Fotos speichern</button>
+        <button class="btn ghost small" id="dlAll">↗ Teilen (z. B. an Vinted)</button>
       </div>
       <div class="status" id="imgStatus"></div>
 

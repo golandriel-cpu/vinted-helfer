@@ -173,21 +173,123 @@ export async function editImage(img, mode, box, opts = {}, memo = {}){
   // Artikel ausschneiden
   const cut = document.createElement("canvas"); cut.width = W; cut.height = H;
   const cctx = cut.getContext("2d"); cctx.drawImage(full, 0, 0); cctx.globalCompositeOperation = "destination-in"; cctx.drawImage(fm, 0, 0);
-  // zentriert auf Weiß setzen
   const [x0, y0, x1, y1] = seg.bbox, m = 4;
   const bx = Math.max(0, x0 - m), by = Math.max(0, y0 - m), bw = Math.min(W, x1 + m + 1) - bx, bh = Math.min(H, y1 + m + 1) - by;
   const OW = 1200, OH = opts.format === "11" ? 1200 : 1500;
+  if (opts.style !== "weiss") return composeWall({ cut, seg, W, bx, by, bw, bh, OW, OH, shadow: opts.shadow, hang: opts.hang || "buegel" });
+  // zentriert auf Weiß setzen
   const sc = Math.min(OW * .84 / bw, OH * .84 / bh, 2);
   const dw = bw * sc, dh = bh * sc, dx = (OW - dw) / 2, dy = (OH - dh) / 2;
-  const out = document.createElement("canvas"); out.width = OW; out.height = OH;
-  const o = out.getContext("2d"); o.fillStyle = "#fff"; o.fillRect(0, 0, OW, OH);
+  const out = mk(OW, OH), o = out.getContext("2d"); o.fillStyle = "#fff"; o.fillRect(0, 0, OW, OH);
   o.imageSmoothingEnabled = true; o.imageSmoothingQuality = "high";
   if (opts.shadow){
-    const sh = document.createElement("canvas"); sh.width = W; sh.height = H;
-    const shc = sh.getContext("2d"); shc.drawImage(fm, 0, 0); shc.globalCompositeOperation = "source-in"; shc.fillStyle = "#000"; shc.fillRect(0, 0, W, H);
     o.save(); o.globalAlpha = .14; o.filter = `blur(${Math.round(OW * .014)}px)`;
-    o.drawImage(sh, bx, by, bw, bh, dx + OW * .006, dy + OH * .012, dw, dh); o.restore();
+    o.drawImage(silhouette(fm), bx, by, bw, bh, dx + OW * .006, dy + OH * .012, dw, dh); o.restore();
   }
   o.drawImage(cut, bx, by, bw, bh, dx, dy, dw, dh);
+  return out;
+}
+
+const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+// schwarze Silhouette aus einer Alpha-Vorlage
+function silhouette(src){
+  const c = mk(src.width, src.height), x = c.getContext("2d");
+  x.drawImage(src, 0, 0); x.globalCompositeOperation = "source-in"; x.fillStyle = "#000"; x.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
+// Form des Artikels oben (Quellkoordinaten): Mitte und Breite der Schultern, Breite ganz oben (Bund)
+function topShape(seg, W){
+  const [x0, y0, x1, y1] = seg.bbox, a = seg.alpha, bh = y1 - y0 + 1;
+  const span = y => { let l = -1, r = -1; for (let x = x0; x <= x1; x++) if (a[y*W + x] >= 128){ if (l < 0) l = x; r = x; } return [l, r]; };
+  let [sl, sr] = span(Math.min(y1, Math.round(y0 + bh * .07)));
+  if (sl < 0){ sl = x0; sr = x1; }
+  const [wl, wr] = span(Math.min(y1, Math.round(y0 + bh * .015)));
+  return { cx: (sl + sr) / 2, sl, sr, wl: wl < 0 ? sl : wl, wr: wr < 0 ? sr : wr };
+}
+
+// Weiße Wand mit weichem Licht von oben links und feiner Struktur
+function paintWall(o, OW, OH){
+  const g = o.createLinearGradient(0, 0, 0, OH); g.addColorStop(0, "#f9f9f7"); g.addColorStop(1, "#ebeae6");
+  o.fillStyle = g; o.fillRect(0, 0, OW, OH);
+  const r = o.createRadialGradient(OW * .38, OH * .22, 0, OW * .38, OH * .22, OH * .85);
+  r.addColorStop(0, "rgba(255,255,255,.75)"); r.addColorStop(.55, "rgba(255,255,255,.15)"); r.addColorStop(1, "rgba(120,115,105,.10)");
+  o.fillStyle = r; o.fillRect(0, 0, OW, OH);
+  const id = o.getImageData(0, 0, OW, OH), d = id.data;
+  for (let i = 0; i < d.length; i += 4){ const n = (Math.random() - .5) * 3.2; d[i] += n; d[i+1] += n; d[i+2] += n; }
+  o.putImageData(id, 0, 0);
+}
+
+function chrome(o, x0, x1){
+  const g = o.createLinearGradient(x0, 0, x1, 0);
+  g.addColorStop(0, "#8d9094"); g.addColorStop(.45, "#eceef0"); g.addColorStop(.6, "#b9bcc0"); g.addColorStop(1, "#7c7f84");
+  return g;
+}
+// Haken: von (x, yBase) senkrecht nach oben, oben als offener Bogen nach rechts
+function hookPath(o, x, yBase, yTop, r){
+  o.beginPath(); o.moveTo(x, yBase); o.lineTo(x, yTop + r); o.arc(x + r, yTop + r, r, Math.PI, Math.PI * 2.28);
+}
+
+// Artikel hängt auf einem Bügel vor einer weißen Wand.
+// hang: "buegel" (Oberteile, Kleider, Jacken) | "klammer" (Hosen, Röcke) | "vorhanden" (Bügel schon im Foto) | "keiner"
+function composeWall({ cut, seg, W, bx, by, bw, bh, OW, OH, shadow, hang }){
+  const t = topShape(seg, W), s = OW / 1200;
+  const addHanger = hang === "buegel" || hang === "klammer";
+  const sc = Math.min(OW * .80 / bw, OH * (addHanger ? .70 : .80) / bh, 2);
+  const dw = bw * sc, dh = bh * sc;
+  let dx = OW / 2 - (t.cx - bx) * sc;
+  dx = Math.max(OW * .03, Math.min(OW * .97 - dw, dx));
+  const dy = addHanger ? OH * .2 : (OH - dh) / 2;
+  const X = x => dx + (x - bx) * sc, cx = X(t.cx);
+
+  // Artikel auf eigener Ebene, leicht schattiert (unten etwas dunkler, Licht von links)
+  const art = mk(OW, OH), a = art.getContext("2d");
+  a.imageSmoothingEnabled = true; a.imageSmoothingQuality = "high";
+  a.drawImage(cut, bx, by, bw, bh, dx, dy, dw, dh);
+  a.globalCompositeOperation = "source-atop";
+  let g = a.createLinearGradient(0, dy, 0, dy + dh); g.addColorStop(0, "rgba(255,255,255,.03)"); g.addColorStop(1, "rgba(0,0,0,.07)");
+  a.fillStyle = g; a.fillRect(0, 0, OW, OH);
+  g = a.createLinearGradient(dx, 0, dx + dw, 0); g.addColorStop(0, "rgba(255,255,255,.035)"); g.addColorStop(1, "rgba(0,0,0,.045)");
+  a.fillStyle = g; a.fillRect(0, 0, OW, OH);
+  a.globalCompositeOperation = "source-over";
+
+  // Bügel (hinter dem Artikel) und Klammern (davor)
+  const back = mk(OW, OH), b = back.getContext("2d"), front = mk(OW, OH), f = front.getContext("2d");
+  b.lineCap = f.lineCap = "round";
+  const hookTop = OH * .04, hookR = 21 * s, wire = 9 * s;
+  if (hang === "buegel"){
+    const hw = Math.min(dw * .92, (t.sr - t.sl) * sc * .9), top = dy + OH * .014, endY = top + hw * .19, th = 24 * s;
+    // Holzarme
+    b.beginPath(); b.moveTo(cx - hw / 2, endY); b.quadraticCurveTo(cx, 2 * top - endY, cx + hw / 2, endY);
+    const wood = b.createLinearGradient(0, top - th, 0, endY + th); wood.addColorStop(0, "#d7ab78"); wood.addColorStop(.5, "#b9814c"); wood.addColorStop(1, "#8a5a30");
+    b.strokeStyle = wood; b.lineWidth = th; b.stroke();
+    const hy = top - th * .28, he = endY - th * .28;
+    b.beginPath(); b.moveTo(cx - hw / 2 + 4 * s, he); b.quadraticCurveTo(cx, 2 * hy - he, cx + hw / 2 - 4 * s, he);
+    b.strokeStyle = "rgba(255,240,220,.45)"; b.lineWidth = 3 * s; b.stroke();
+    // Haken + Metallfuß
+    hookPath(b, cx, top, hookTop, hookR); b.strokeStyle = chrome(b, cx - wire, cx + hookR * 2 + wire); b.lineWidth = wire; b.stroke();
+    b.fillStyle = chrome(b, cx - 9 * s, cx + 9 * s); b.fillRect(cx - 7 * s, top - th * .75, 14 * s, th * .5);
+  } else if (hang === "klammer"){
+    const l = X(t.wl) + 6 * s, r = X(t.wr) - 6 * s, bar = dy - OH * .012;
+    b.beginPath(); b.moveTo(l - 10 * s, bar); b.lineTo(r + 10 * s, bar); b.strokeStyle = chrome(b, l, r); b.lineWidth = wire * 1.3; b.stroke();
+    hookPath(b, cx, bar, hookTop, hookR); b.strokeStyle = chrome(b, cx - wire, cx + hookR * 2 + wire); b.lineWidth = wire; b.stroke();
+    const cw = 36 * s, ch = 54 * s;
+    for (const x of [l + (r - l) * .06, r - (r - l) * .06]){
+      const cg = f.createLinearGradient(x - cw / 2, 0, x + cw / 2, 0); cg.addColorStop(0, "#3a3c40"); cg.addColorStop(.5, "#6b6e73"); cg.addColorStop(1, "#2c2e31");
+      f.fillStyle = cg; f.fillRect(x - cw / 2, bar - ch * .25, cw, ch);
+      f.fillStyle = "rgba(255,255,255,.25)"; f.fillRect(x - cw / 2 + 4 * s, bar - ch * .2, 3 * s, ch * .85);
+    }
+  }
+
+  const out = mk(OW, OH), o = out.getContext("2d");
+  paintWall(o, OW, OH);
+  if (shadow){
+    // Schlagschatten an der Wand: Artikel hängt etwas davor, Licht von oben links
+    const all = mk(OW, OH), x = all.getContext("2d"); x.drawImage(back, 0, 0); x.drawImage(art, 0, 0); x.drawImage(front, 0, 0);
+    const sh = silhouette(all);
+    o.save(); o.globalAlpha = .2; o.filter = `blur(${Math.round(16 * s)}px)`; o.drawImage(sh, 16 * s, 26 * s); o.restore();
+    o.save(); o.globalAlpha = .16; o.filter = `blur(${Math.round(3 * s)}px)`; o.drawImage(sh, 6 * s, 9 * s); o.restore();
+  }
+  o.drawImage(back, 0, 0); o.drawImage(art, 0, 0); o.drawImage(front, 0, 0);
   return out;
 }

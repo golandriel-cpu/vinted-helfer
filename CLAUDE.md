@@ -27,8 +27,13 @@ Sprache der App und der Kommunikation: **Deutsch**.
   `cleanAlpha()` behält nur große Teile (bei KI-Rahmen die im Rahmen) und strafft die Kante.
   `memo` cached die KI-Maske pro Foto (neuer Rahmen → kein erneutes Freistellen).
   Farbkorrektur: Weißabgleich nur bei neutralen Lichtern, Belichtung so begrenzt, dass der Artikel nicht ausbrennt.
+  Stil (`opts.style`): `wand` (Standard) = Artikel hängt vor weißer Wand, `composeWall()` zeichnet Holzbügel/Haken bzw.
+  Klammerbügel + Schlagschatten; `weiss` = freigestellt auf Weiß. Bügelart pro Foto (`opts.hang`) liefert Gemini in
+  `bilder[].haengen`: `buegel | klammer | vorhanden | keiner`.
   KI-Rahmen kommen von Gemini als `box_2d` = `[ymin, xmin, ymax, xmax]` (Gemini-natives Format!), intern `[x0, y0, x1, y1]`.
   **Achtung:** Dynamisch geladene Module nie direkt resolven/awaiten, falls „thenable“ – immer verpacken (`{ m }`).
+- Fotos: „Alle Fotos speichern“/⬇ = Download (Android: Ordner „Download“), „Teilen“ = Web-Share an z. B. Vinted.
+- API-Schlüssel: wird bei jeder Eingabe in localStorage gesichert; `navigator.storage.persist()` gegen Löschen.
 - `js/storage.js`: IndexedDB-Store `listings` (Archiv inkl. kleinem Thumbnail als Data-URL).
 - `sw.js`: App-Shell network-first, CDN cache-first. **Bei Änderungen an App-Dateien `VERSION` hochzählen.**
 
