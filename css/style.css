@@ -66,7 +66,12 @@ textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-
 .tag{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:500}
 .prices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .price{border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;background:var(--bg)}
-.price.main{border-color:var(--accent);background:var(--accent-soft)}
+.price{font:inherit;color:inherit;cursor:pointer;width:100%}
+.price.main{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset}
+.mine{margin-top:10px}
+.mine label{margin-top:4px}
+.mine-row{display:flex;align-items:center;gap:8px}
+.mine-row input{width:110px;font-size:18px;font-weight:600}
 .price b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .price div{font-size:22px;font-weight:700}
 .note{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}

@@ -237,7 +237,7 @@ Standardtext für das Ende der Beschreibung: ${settings.footer ? `"${settings.fo
 Regeln:
 - Erkenne Artikeltyp, Marke (Logo, Etikett), Größe, Material, Farbe, Schnitt/Stil und sichtbare Mängel. Lies Etiketten genau. Erfinde nichts: was du nicht sicher erkennst, lässt du leer und nennst es unter "unsicher".
 - Titel: suchoptimiert, ohne Füllwörter, ohne Emojis, ohne Hashtags.
-- Beschreibung: 1 einladender Einstiegssatz, dann kompakte Details (Marke, Größe/Passform, Material, Farbe, Stil), dann ehrlicher Zustand inkl. Mängel, ggf. Styling-Idee. Kurze Absätze, gut lesbar am Handy, 400–900 Zeichen. Falls ein Standardtext vorgegeben ist, hänge ihn wörtlich als letzten Absatz an.
+- Beschreibung: 1 einladender Einstiegssatz, dann kompakte Details (Marke, Größe/Passform, Material, Farbe, Stil), dann ehrlicher Zustand inkl. Mängel. KEINE Styling-Tipps, Kombinationsvorschläge oder Outfit-Ideen. Kurze Absätze, gut lesbar am Handy, 400–900 Zeichen. Falls ein Standardtext vorgegeben ist, hänge ihn wörtlich als letzten Absatz an.
 - Hashtags: deutsch, kleingeschrieben, ohne Leerzeichen; Mix aus Marke, Artikeltyp, Stil/Trend (z. B. y2k, vintage, streetwear), Farbe, Anlass. Keine irreführenden Marken-Tags.
 - "bilder": genau ein Eintrag pro Foto in der Reihenfolge der Fotos. "typ": "gesamt" = Artikel ganz zu sehen, "detail" = Nahaufnahme/Mangel, "etikett" = Etikett/Label. "box_2d" = enger Rahmen um den Artikel (inkl. Kleiderbügel, falls er daran hängt; ohne Hände, Möbel) als [ymin, xmin, ymax, xmax], normiert auf 0–1000.
 - Preis in ganzen Euro für den deutschen Vinted-Markt, realistisch nach Marke, Zustand und typischer Nachfrage. "schnell" = verkauft sich zügig, "empfohlen" = guter Kompromiss, "max" = Startpreis mit Verhandlungsspielraum. Beim Ziel "schnell" eher niedriger, bei "maximal" eher höher ansetzen.
@@ -348,6 +348,8 @@ function renderResult(){
   const u = $("unsure");
   if (r.unsicher.length){ u.classList.remove("hidden"); u.innerHTML = `<b>Bitte prüfen</b><ul>${r.unsicher.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`; }
   else u.classList.add("hidden");
+  if (!r.preis.gewaehlt) r.preis.gewaehlt = r.preis.empfohlen || r.preis.schnell || r.preis.max || null;
+  renderPrice();
   $("p-schnell").textContent = eur(r.preis.schnell);
   $("p-empf").textContent = eur(r.preis.empfohlen);
   $("p-max").textContent = eur(r.preis.max);
@@ -356,6 +358,18 @@ function renderResult(){
   $("p-link").href = `https://${settings.domain}/catalog?search_text=${encodeURIComponent(r.suchbegriff)}&order=relevance`;
   $("save").textContent = state.savedId ? "Änderungen speichern" : "Im Archiv speichern";
 }
+// Preis: Karte antippen übernimmt den Vorschlag, im Feld frei anpassbar
+function renderPrice(){
+  const p = state.result.preis;
+  document.querySelectorAll("#prices .price").forEach(b => b.classList.toggle("main", !!p.gewaehlt && p[b.dataset.p] === p.gewaehlt));
+  $("p-mine").value = p.gewaehlt || "";
+}
+document.querySelectorAll("#prices .price").forEach(b => b.onclick = () => {
+  const p = state.result && state.result.preis; if (!p || !p[b.dataset.p]) return;
+  p.gewaehlt = p[b.dataset.p]; renderPrice();
+});
+$("p-mine").oninput = () => { if (!state.result) return; state.result.preis.gewaehlt = num($("p-mine").value); renderPrice(); };
+$("p-copy").onclick = () => { const v = state.result && state.result.preis.gewaehlt; if (v) copy(String(v)); };
 function updLen(){ const n = $("f-titel").value.length; $("tlen").textContent = `${n} Zeichen`; }
 $("f-titel").oninput = () => { updLen(); if (state.result) state.result.titel = $("f-titel").value; };
 $("f-beschreibung").oninput = () => { if (state.result) state.result.beschreibung = $("f-beschreibung").value; };
@@ -378,10 +392,14 @@ $("reset").onclick = () => {
 // ---------- archive ----------
 $("save").onclick = async () => {
   readEdits(); if (!state.result) return;
+  await queue;   // laufende Bildbearbeitung abwarten
   const id = state.savedId || ("l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
   const prev = state.archive.find(a => a.id === id);
   const item = { id, created: prev ? prev.created : Date.now(), updated: Date.now(), status: prev ? prev.status : "entwurf",
-    thumb: state.images[0] ? state.images[0].thumb : (prev ? prev.thumb : ""), result: JSON.parse(JSON.stringify(state.result)) };
+    thumb: state.images[0] ? state.images[0].thumb : (prev ? prev.thumb : ""), result: JSON.parse(JSON.stringify(state.result)),
+    // Fotos als Blobs (Original + bearbeitet), damit sie beim Öffnen wieder da sind
+    photos: state.images.length ? state.images.map(im => ({ orig: im.blob, edited: im.edited || null, mode: im.mode, box: im.box || null,
+      autoMode: im.autoMode || null, userMode: !!im.userMode, origThumb: im.origThumb })) : (prev && prev.photos) || [] };
   const btn = $("save"); setBusy(btn, true, "Speichere…");
   try{
     await putItem(item); state.savedId = id; toast("Im Archiv gespeichert");
@@ -404,7 +422,7 @@ function renderArchive(){
   const list = $("archList");
   const a = [...state.archive].sort((x, y) => y.created - x.created);
   const sold = a.filter(x => x.status === "verkauft");
-  const sum = sold.reduce((s, x) => s + (x.soldPrice || x.result.preis.empfohlen || 0), 0);
+  const sum = sold.reduce((s, x) => s + (x.soldPrice || x.result.preis.gewaehlt || x.result.preis.empfohlen || 0), 0);
   $("stats").innerHTML = a.length ? `<span class="pill">${a.length} Inserate</span><span class="pill">${a.filter(x => x.status === "online").length} online</span><span class="pill">${sold.length} verkauft · ca. ${sum} €</span>` : "";
   if (!a.length){ list.innerHTML = `<p class="muted">Noch nichts gespeichert. Erstelle ein Inserat und tippe auf „Im Archiv speichern“.</p>`; return; }
   list.innerHTML = "";
@@ -412,14 +430,25 @@ function renderArchive(){
     const el = document.createElement("div"); el.className = "arch-item";
     el.innerHTML = `${x.thumb ? `<img src="${x.thumb}" alt="">` : `<img alt="">`}
       <div class="t"><div>${esc(x.result.titel || x.result.artikel || "Ohne Titel")}</div>
-      <span class="muted">${eur(x.result.preis.empfohlen)} · ${new Date(x.created).toLocaleDateString("de-DE")}</span></div>
+      <span class="muted">${eur(x.result.preis.gewaehlt || x.result.preis.empfohlen)} · ${x.photos && x.photos.length ? `${x.photos.length} Foto${x.photos.length === 1 ? "" : "s"} · ` : ""}${new Date(x.created).toLocaleDateString("de-DE")}</span></div>
       <select>${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${x.status === k ? "selected" : ""}>${l}</option>`).join("")}</select>
       <button class="btn ghost small" data-a="open">Öffnen</button>
       <button class="btn ghost small" data-a="del" title="Löschen">✕</button>`;
     el.querySelector("select").onchange = async ev => { x.status = ev.target.value; x.updated = Date.now(); try{ await putItem(x); renderArchive(); }catch(e){ toast("Speichern fehlgeschlagen"); } };
-    el.querySelector('[data-a="open"]').onclick = () => {
+    el.querySelector('[data-a="open"]').onclick = async () => {
       state.result = JSON.parse(JSON.stringify(x.result)); state.savedId = x.id;
-      state.images.forEach(i => URL.revokeObjectURL(i.url)); state.images = []; renderThumbs();
+      state.images.forEach(i => { URL.revokeObjectURL(i.url); if (i.editedUrl) URL.revokeObjectURL(i.editedUrl); }); state.images = [];
+      for (const p of x.photos || []){
+        try{
+          const { img, url } = await loadImg(p.orig);
+          const im = { id: Math.random().toString(36).slice(2), img, url, blob: p.orig, origThumb: p.origThumb, thumb: p.origThumb,
+            mode: p.mode || "original", box: p.box, autoMode: p.autoMode, userMode: p.userMode, edited: null, editedUrl: null, busy: false, showOrig: false };
+          if (p.edited){ im.edited = p.edited; im.editedUrl = URL.createObjectURL(p.edited); }
+          state.images.push(im);
+        }catch(e){ console.warn("Archivfoto", e); }
+      }
+      renderThumbs();
+      if ((x.photos || []).length === 0 && x.thumb) toast("Dieses ältere Inserat wurde ohne Fotos gespeichert");
       document.querySelector('nav button[data-view="neu"]').click(); renderResult();
       $("result").scrollIntoView({ behavior: "smooth" });
     };

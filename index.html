@@ -116,10 +116,15 @@
 
       <div class="card">
         <h2>4 · Preis</h2>
-        <div class="prices">
-          <div class="price"><b>Schnell weg</b><div id="p-schnell">–</div></div>
-          <div class="price main"><b>Empfohlen</b><div id="p-empf">–</div></div>
-          <div class="price"><b>Startpreis</b><div id="p-max">–</div></div>
+        <div class="prices" id="prices">
+          <button class="price" data-p="schnell"><b>Schnell weg</b><div id="p-schnell">–</div></button>
+          <button class="price" data-p="empfohlen"><b>Empfohlen</b><div id="p-empf">–</div></button>
+          <button class="price" data-p="max"><b>Startpreis</b><div id="p-max">–</div></button>
+        </div>
+        <div class="mine">
+          <label for="p-mine">Dein Preis</label>
+          <div class="mine-row"><input type="number" id="p-mine" min="1" step="1" inputmode="numeric"><span>€</span>
+            <button class="btn ghost small" id="p-copy">Kopieren</button></div>
         </div>
         <p class="muted" id="p-why" style="margin:10px 0 4px"></p>
         <p class="muted" style="margin:0">Schätzung ohne Live-Marktdaten – kurz gegenprüfen: <a id="p-link" href="#" target="_blank" rel="noopener">ähnliche Artikel auf Vinted ansehen</a></p>

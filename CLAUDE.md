@@ -35,7 +35,8 @@ Sprache der App und der Kommunikation: **Deutsch**.
 - Fotos: „Alle Fotos speichern“/⬇ = Download (Android: Ordner „Download“), „Teilen“ = Web-Share an z. B. Vinted.
 - API-Schlüssel: wird bei jeder Eingabe in localStorage gesichert; `navigator.storage.persist()` gegen Löschen.
   Gespeichert → maskierte Anzeige + „Ändern“; „Schlüssel prüfen“ = `checkKey()` (GET Modellinfo, kein Kontingent).
-- `js/storage.js`: IndexedDB-Store `listings` (Archiv inkl. kleinem Thumbnail als Data-URL).
+- `js/storage.js`: IndexedDB-Store `listings` (Archiv inkl. Thumbnail und `photos[]` mit Original- und bearbeitetem Blob;
+  Einträge vor v5 haben keine Fotos). Gewählter Preis steht in `result.preis.gewaehlt`.
 - `sw.js`: App-Shell network-first, CDN cache-first. **Bei Änderungen an App-Dateien `VERSION` hochzählen.**
 
 ## Entwickeln & Testen
